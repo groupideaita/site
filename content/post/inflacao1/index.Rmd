@@ -1,0 +1,744 @@
+---
+title: "Inflação"
+authors: ["Charles"]
+date: "2021-04-27"
+#output: html_document
+#output:
+#  bookdown::html_document2:
+#    html_document:
+#    highlight: textmate
+#    theme: flatly
+#    number_sections: yes
+#    fig_caption: yes
+#    toc: yes
+#    toc_float:
+#      collapsed: yes
+#      smooth_scroll: no
+#  pdf_document:
+#   toc: yes
+#header-includes:
+#- \usepackage{color, colortbl}
+#- \usepackage{amsmath}
+#- \usepackage{mathtools}
+#- \usepackage{tcolorbox}
+#- \usepackage{multirow}
+#- \usepackage{xcolor}
+#- \usepackage{here}
+#- \usepackage{dcolumn}
+#- \usepackage{caption}
+#- \usepackage{abntcite2}
+bibliography: "macroeconomia.bib"
+#link-citations: yes
+csl: "universidade-de-sao-paulo-escola-de-comunicacoes-e-artes-abnt.csl"
+tags: ["Macroeconomia", "Inflação"]  
+---
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                        fig.cap.style = "Image Caption",
+                        fig.cap.pre = "Figura ",
+                        fig.cap.sep = ": ")
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
+
+```
+
+```{r, echo=F, eval=T, results='asis', fig.cap='', fig.width=8, fig.height=4, fig.align='center', out.width=".8\\linewidth", warning=FALSE, message=FALSE, size='tiny'}
+
+## Carregar pacotes
+library(tidyverse)
+library(readxl)
+library(sidrar)
+library(forecast)
+library(tstools)
+library(scales)
+library(ggrepel)
+library(BETS)
+library(xtable)
+library(lubridate)
+library(RcppRoll)
+library(knitr)
+library(fpp3)
+library(xts)
+library(reshape2)
+library(rbcb)
+library(kableExtra)
+library(ggthemes)
+library(ggplotify)
+
+
+```
+ 
+
+# Introdução
+
+Textos de referência Vasconcellos e Garcia [-@Vasconcellos2018, p. 221, 302-314]; Lopes et al. [-@Lopes2018, p. 11-13, 56]; Lopes et al. [-@Lopes2008, p. 294-306] e Mankiw [-@Mankiw2010, p. 25-28, 301-303].
+
+O presente arquivo trata dos principais tópicos abordados na disciplina `r text_spec("**Princípios de Economia --  GED-72/2020**", color = "#5d8aa8")`. Em especial, objetiva-se  reforçar os preceitos e conceitos da `r text_spec("**Ciência Macroeconômica**", color = "#5d8aa8")`  apresentados em sala de aula (ou em videoaulas).
+
+<style type="text/css">
+
+body {text-align: justify},
+td {
+   font-size: 15px;
+}
+code.r{
+  font-size: 12px;
+}
+pre {
+  font-size: 12px
+}
+h1,h2,h3,h4,h5,h6{
+  font-size: 25px;
+}
+h2,h3,h4,h5,h6{
+  font-size: 20px;
+}
+h3,h4,h5,h6{
+  font-size: 18px;
+}
+
+
+blockquote {
+    padding: 10px 20px;
+    margin: 0 0 20px;
+    font-size: 14px;
+    border-left: 5px solid #ffd700;
+}
+
+
+</style>
+
+O objetivo deste `r text_spec("**resumo**", color = "#5d8aa8")` é apresentar conceitos básicos sobre inflação e evidenciar  os principais índices de preços empregados no Brasil. <!-- e, ademais,  demonstrar  algumas técnicas para deflacionar séries temporais. Para esse fim, utilizar-se-á o programa Excel da Microsoft e, principalmente, o \textit{software} estatístico \href{https://www.r-project.org/}{\faRProject}.\footnote{O conteúdo prático tem como objetivo consolidar os conceitos teóricos sobre inflação, não haverá questões sobre os \textit{softwares} na avaliação de macroeconomia.}-->
+
+  O que é inflação? De modo resumido, a inflação é o processo de crescimento `r text_spec("**contínuo**", color = "#5d8aa8")` e `r text_spec("**generalizado**", color = "#5d8aa8")` dos preços numa economia. A taxa de inflação é um indicador do aumento percentual do nível geral de preços.
+  
+  
+```{corollary, name="Taxa de Inflação"}
+
+ $$\frac{I-I_{-1}}{I_{-1}}$$
+
+<font size="1">  
+$\textrm{I} = \textrm{Índice Geral de Preços}$
+
+ </font>
+```  
+
+
+ A Figura \@ref(fig:ipcaindice) mostra o número-índice, a varição mensal e a variação anual da inflação no Brasil entre 2010 e início de 2021 --- Tabela n.º 1737 do Sistema IBGE de Recuperação Automática [@sidra2021].
+
+
+```{r ipcaindice,  echo=F, eval=T, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Número Índice, variação mensal e variação anual da inflação --- 2010--2021", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+
+ipca_indice <- readRDS("C:/Users/Administrador/Documents/Pos/Analise_Macro/Clube_Macro/Clube/fevereiro/ipca_indice.RDS")
+
+ipca_subamostra <- ipca_indice %>% 
+  filter(date >= as.Date('2010-01-01'))
+
+labels <- c(Valor = 'Número Índice', 
+           mensal = 'Variação mensal',
+           anual = 'Variação anual')
+
+ipca_subamostra %>%
+  gather(variavel, valor, -date) %>%
+  mutate(variavel = factor(variavel, 
+                           levels=c('Valor', 'mensal', 'anual'))) %>%
+  ggplot(aes(x=date, y=valor, colour=variavel))+
+  theme_economist_white() +
+  geom_line()+
+  scale_color_manual(values = c("#ebc600","#722f37","#5d8aa8")) +
+  facet_wrap(~variavel, scales='free', labeller = as_labeller(labels))+
+    theme(legend.position = 'none'
+       # , = element_text(face='bold')
+        )+
+  labs(x='', y='')
+
+
+```
+
+<!---
+\begin{figure}[H]
+	\renewcommand{\figurename}{\MakeTextUppercase\footnotesize Figura }
+	\centering
+	\includegraphics[width=.91\textwidth]{content/post/2021-04-27-deflacionamento/ipca_subamostra.png}
+	%\raggedright\hspace{2.4cm}\footnotesize{}
+	\label{ipca_subamostra}
+	%\vspace*{-.3cm}
+	\caption{\protect\footnotesize Número Índice, variação mensal e variação anual da inflação --- 2010--2021}\label{}
+	% \caption{Número Índice, variação mensal e variação anual da inflação --- 2010--2021}
+\end{figure}
+--->
+
+Quando se diz, por exemplo, que um índice como o Índice Nacional de Preços ao Consumidor Amplo (IPCA) --- índice oficial do Brasil --- teve uma variação mensal de 2\% no mês de agosto, isto significa que
+a `r text_spec("**média ponderada**", color = "#5d8aa8")` dos preços que compõem o  índice em referência sofreu um aumento de 2\% em relação ao mês anterior, isto é, em relação a julho.
+
+Se a variação do salário, em determinado período, for menor que o IPCA, haverá, em média,  perda  do poder de compra. Se a inflação e o salário têm a mesma variação, mantém-se o  poder de compra. Todavia,  um aumento salarial for acima do referido índice, o poder de compra aumentará.
+
+
+
+# Índices de preços
+
+Texto de referência Vasconcellos e Garcia [-@Vasconcellos2018, p. 198-203].
+
+A inflação é mensurada através de índices que ponderam os bens e serviços mais importantes para uma população e medem o crescimento dos preços. Posto de outro modo, os índices de preços são "números que agregam e representam os preços de determinada cesta de produtos. Sua variação mede, portanto, a variação média dos preços dos produtos dessa cesta. Podem se referir, por exemplo, a preços ao consumidor, preços ao produtor, custos de  produção ou preços de exportação e importação. Os índices mais difundidos são os índices de preços ao consumidor, que medem a variação do custo de vida de segmentos da população (taxa de inflação ou de deflação)" (BCB, 2016).
+
+
+```{lemma, name="Número-índice"}
+```
+> Os números-índices têm por objetivo mensurar a evolução relativa de uma ou mais séries de dados ao longo do tempo.  Ou seja, é uma medida que sintetiza, em uma expressão quantitativa,  a variação média, entre duas situações, de todos os elementos de um conjunto.
+
+
+O `r text_spec("**Índice Laspeyres**", color = "#5d8aa8")`, por exemplo, faz parte da metodologia para o cálculo do IPCA.
+
+
+```{corollary, name="Índice Laspeyres"}
+
+$$\textrm{Índ. Lasp.} = \frac{\sum_{i=1}^{n}p_{t}\times q_{0}}{\sum_{i=1}^{n}p_{0}\times q_{0}}$$
+
+<font size="1">  
+$p_{t} = \textrm{ preço no período t;}$
+  
+$p_{0} = \textrm{ preço no período base;}$
+
+$q _{0} = \textrm{ quantidade no período base.}$
+
+ </font>  
+```
+
+O [Índice Nacional de Preços ao Consumidor Amplo (IPCA)](https://www.ibge.gov.br/estatisticas/economicas/precos-e-custos/9256-indice-nacional-de-precos-ao-consumidor-amplo.html?=&t=o-que-e), calculado pelo IBGE,  é um dos índices mais importantes da economia brasileira, pois, é utilizado pelo [Conselho Monetário Nacional (CMN)](https://www.gov.br/fazenda/pt-br/assuntos/cmn) como referência para o sistema de metas de inflação. Ademais, alguns títulos do [Tesouro Nacional](https://www.tesourodireto.com.br/titulos/tipos-de-tesouro.htm) são indexados a esse índice. Outro índice importante elaborado pela mesma instituição é o [Índice Nacional de Preços ao Consumidor (INPC)](https://www.ibge.gov.br/estatisticas/economicas/precos-e-custos/9258-indice-nacional-de-precos-ao-consumidor.html?=&t=o-que-e) que mensura um conjunto de produtos e serviços consumidos pelas famílias com rendimentos de 1 a 5 salários mínimos, em que a pessoa de referência na família seja assalariada, e que resida na área urbana da região de abrangência da coleta. O INPC é comumente utilizado em dissídios salariais.
+
+A base de ponderação dos índices de preço ao consumidor calculados pelo IBGE é obtida através de pesquisas de orçamento familiar que levantam o peso de cada produto no consumo das famílias.
+
+```{r, echo=F, eval=T, results='asis', fig.cap='', fig.width=8, fig.height=4, fig.align='center', out.width=".9\\linewidth", warning=FALSE, message=FALSE, size='tiny'}
+
+## Baixar e tratar os dados
+#variacao = 
+#  '/t/7060/n1/all/v/63/p/all/c315/7170,7445,7486,7558,7625,7660,7712,7766,7786/d/v63%202' %>%
+#  get_sidra(api=.) %>%
+#  mutate(date = parse_date(`Mês (Código)`, format='%Y%m')) %>%
+#  select(date, "Geral, grupo, subgrupo, item e subitem", Valor) %>%
+#  pivot_wider(names_from = "Geral, grupo, subgrupo, item e subitem",
+#              values_from = Valor) 
+
+#variacao %>% saveRDS("C:/Users/Administrador/Documents/Pos/Analise_Macro/Clube_Macro/Clube/fevereiro/variacao.RDS")
+
+variacao <- readRDS("C:/Users/Administrador/Documents/Pos/Analise_Macro/Clube_Macro/Clube/fevereiro/variacao.RDS")
+  
+#peso = 
+ # '/t/7060/n1/all/v/66/p/all/c315/7170,7445,7486,7558,7625,7660,7712,7766,7786/d/v66%204' %>%
+ # get_sidra(api=.) %>%
+ # mutate(date = parse_date(`Mês (Código)`, format='%Y%m')) %>%
+ # select(date, "Geral, grupo, subgrupo, item e subitem", Valor) %>%
+ # pivot_wider(names_from = "Geral, grupo, subgrupo, item e subitem",
+ #             values_from = Valor)
+
+#peso %>%  saveRDS("C:/Users/Administrador/Documents/Pos/Analise_Macro/Clube_Macro/Clube/fevereiro/peso.RDS")
+
+peso <- readRDS("C:/Users/Administrador/Documents/Pos/Analise_Macro/Clube_Macro/Clube/fevereiro/peso.RDS")  
+  
+
+
+contribuicao = (variacao[,-1]*peso[,-1]/100) %>%
+  mutate(date = variacao$date) %>%
+  select(date, everything())
+```
+
+
+
+```{r include=FALSE, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Variação mensal dos grupos do IPCA", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+
+colours <- c("#c3d4df", "#90afc3", "#5d8aa8", "#406278", "#c77781",
+             "#a84551", "#722f37", "#808080", "#ebc600")
+
+variacao %>%
+  gather(variavel, valor, -date) %>%
+  ggplot(aes(x=date, y=valor, colour=variavel))+
+  theme_economist_white() +
+  geom_bar(aes(fill=variavel, colour=variavel), 
+           stat='identity')+
+  geom_hline(yintercept = 0, colour='black', linetype='dashed')+
+  scale_colour_manual(values=colours)+
+  scale_fill_manual(values=colours)+
+  facet_wrap(~variavel, scales='free')+
+  theme(legend.position = "none",
+        strip.text = element_text(size=10, face='plain'),
+        plot.title = element_text(size=12, face='plain'),
+        axis.text.x = element_text(size=6, face='plain'))+
+  scale_x_yearmonth(date_labels = "%m/%Y") +
+  labs(x='', y='', 
+       #title='Variação mensal dos Grupos do IPCA',
+       caption='Fonte: elaborada pelo autor com dados do SIDRA/IBGE (2021).')
+  
+
+```
+
+
+
+```{r echo=F, eval=T, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Peso dos grupos no IPCA", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+
+peso %>%
+  gather(variavel, valor, -date) %>%
+  ggplot(aes(x=date, y=valor, colour=variavel))+
+  theme_economist_white() +
+  geom_line(aes(fill=variavel, colour=variavel), 
+           size=.8)+
+  scale_colour_manual(values=colours)+
+  scale_fill_manual(values=colours)+
+  facet_wrap(~variavel, scales='free')+
+  theme(legend.position = "none",
+        strip.text = element_text(size=10, face='plain'),
+        plot.title = element_text(size=12, face='plain'),
+        axis.text.x = element_text(size=6, face='plain'))+
+  scale_x_yearmonth(date_labels = "%m/%Y") +
+  labs(x='', y='', 
+       #title='Peso dos Grupos no IPCA',
+       caption='Fonte: elaborada pelo autor com dados do SIDRA/IBGE (2021).')
+
+```
+
+
+
+```{r echo=F, eval=T, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Contribuição dos Grupos do IPCA para a Inflação Mensal", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+
+## Transformar de wide para long
+contribuicao_long =
+  contribuicao %>%
+  gather(variavel, valor, -date)
+
+## Criar a inflação mensal para adicionar ao gráfico
+inflacao = round(rowSums(contribuicao[,-1]),2) 
+inflacao = xts(inflacao, order.by = contribuicao$date)
+inflacao = data.frame(time=index(contribuicao_long$date), 
+                         melt(as.data.frame(inflacao)))
+
+contribuicao_long %>%
+  ggplot(aes(x=date))+
+  theme_economist_white() +
+  geom_col(aes(y=valor, 
+               fill=variavel, colour=variavel))+
+  geom_line(data=inflacao, 
+            aes(x=contribuicao_long$date, y=value), 
+            size=.9, colour='gray')+
+  geom_hline(yintercept=0, colour='black', linetype='dashed')+
+  scale_colour_manual(values=colours)+
+  scale_fill_manual(values=colours)+
+  theme(legend.title = element_blank(),
+        legend.position = 'right',
+        legend.key.size = unit(0.5, "cm"),
+        plot.title = element_text(size=10, face='plain'),
+        panel.background = element_rect(fill='white', colour='white'),
+        axis.line = element_line(colour='black', linetype = 'dashed'))+
+  scale_x_yearmonth(date_labels = "%m/%Y") +
+  labs(x='', y=''
+       #,title='Contribuição dos Grupos do IPCA para a Inflação Mensal'
+       )
+
+```
+
+
+A   Fundação Getúlio Vargas (FGV) consolidou-se como um importante centro de elaboração de índices econômicos. [O Índice Geral de Preços do Mercado (IGP-M)](https://portalibre.fgv.br/indices-de-precos), por exemplo, foi criado em 1947 e é utilizado até hoje para reajustes nos contratos  de aluguéis e reajustes de aumento no valor da energia elétrica. [O Índice Geral de Preços -- Disponibilidade Interna (IGP-DI)](https://portalibre.fgv.br/indices-de-precos) é mais antigo ainda, sua criação data de 1944 e é empregado em contratos para correção de determinados preços administrados.  Além desses, a instituição calcula  o [Índice de Preços ao Produtor Amplo (IPA)](https://portalibre.fgv.br/estudos-e-pesquisas/indices-de-precos/ipa), o [Índice de Preços ao Consumidor (IPC)](https://portalibre.fgv.br/estudos-e-pesquisas/indices-de-precos/ipc), o [Índice Nacional de Custo da Construção (INCC)](https://portalibre.fgv.br/estudos-e-pesquisas/indices-de-precos/incc), entre outros.
+
+
+```{corollary, name="IGP-10, IGP-M e IGP-DI"}
+
+ $$IGP_{i,t}=0,6\times IPA_{i,t}+0,3\times IPC_{i,t}+0,1 \times INCC_{i,t}$$
+
+<font size="2">  
+$\textrm{Onde } i \textrm{ pode ser 10, M ou DI.}$
+
+ </font>
+```  
+
+
+A Figura \@ref(fig:indicesgerais) demonstra a variação percentual dos principais índices da Fundação Getúlio Vargas entre 2010 e início de 2021.
+
+```{r, include=F, results='asis', fig.cap='', fig.width=8, fig.height=4, fig.align='center', out.width=".8\\linewidth", warning=FALSE, message=FALSE, size='tiny'}
+
+series = list('IGP-M'=189, 'IGP-DI'=190, 'IGP-10'=7447, 'IPC-Br'=191,
+              'INCC'=192, 'IPA'=225)
+
+indices_gerais = get_series(series, start_date = '2010-01-01') %>%
+  purrr::reduce(inner_join) %>%
+  gather(variavel, valor, -date)
+
+```
+
+```{r include=FALSE, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Variação percentual dos principais índices da FGV --- 2010--2021"}
+
+colours <- c("#c3d4df",  "#90afc3", "#5d8aa8", "#808080", "#722f37","#ffd700")
+
+indices_gerais %>%
+  ggplot(aes(x=date, y=valor, colour=variavel))+
+  theme_economist_white() + 
+  geom_line()+
+  scale_colour_manual(values=colours)+
+  facet_wrap(~variavel, scales='free')+
+  theme(legend.position = 'none')+
+  labs(x='', y='')
+
+```
+
+
+```{r indicesgerais,  echo=F, eval=T, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Variação percentual dos principais índices da FGV --- 2010--2021", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+
+colours <- c("#c3d4df",  "#90afc3", "#5d8aa8", "#808080", "#722f37","#ffd700")
+
+indices_gerais_12m = 
+  indices_gerais %>%
+  spread(variavel, valor) %>%
+  mutate(`IGP-10` = acum_p(`IGP-10`,12),
+         `IGP-DI` = acum_p(`IGP-DI`,12),
+         `IGP-M` = acum_p(`IGP-M`, 12),
+         INCC = acum_p(INCC, 12),
+         IPA = acum_p(IPA, 12),
+         `IPC-Br` = acum_p(`IPC-Br`, 12)) %>%
+  drop_na() %>%
+  gather(variavel, valor, -date)
+
+indices_gerais_12m %>%
+  ggplot(aes(x=date, y=valor, colour=variavel))+
+  theme_economist_white() +
+   scale_colour_manual(values=colours)+
+  geom_line(size=.8)+
+  facet_wrap(~variavel, scales='free')+
+  theme(legend.position = 'none')+
+  labs(x='', y='')
+
+```
+
+```{r, include=F, results='markup', fig.cap='', fig.width=8, fig.height=4, fig.align='center', out.width="1\\linewidth", warning=FALSE, message=FALSE, size='tiny'}
+
+data1 = 
+  indices_gerais_12m %>%
+  spread(variavel, valor) %>%
+  inner_join(ipca_subamostra, "date") %>%
+  rename(`IPCA` = anual) %>%
+  select(-c(Valor, mensal))
+
+select(data1, -date) %>%
+  cor() %>%
+  kable()
+```
+
+A Figura \@ref(fig:ipcaigpm) mostra a taxa de varição anual do IGP-M e do IPCA entre 2010 e início de 2021.
+
+
+```{r ipcaigpm,  echo=F, eval=T, results='asis', fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "IPCA $vs$ IGP-M", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+
+data1 %>%
+  ggplot(aes(x=date))+
+  theme_economist_white() +
+  geom_ribbon(aes(ymin=IPCA, ymax=`IGP-M`), 
+              colour='#c3d4df', fill='#c3d4df')+
+  geom_line(aes(y=IPCA, colour='IPCA'), size=.8)+
+  geom_line(aes(y=`IGP-M`, colour='IGP-M'), size=.8)+
+  scale_colour_manual('', values=c('IPCA'='#ebc600',
+                                   'IGP-M'='#5d8aa8'))+
+  scale_x_date(breaks = date_breaks("1 years"),
+               labels = date_format("%Y"))+
+  theme(legend.title = element_blank(),
+        legend.position = c(.2,.8),
+        legend.key.size = unit(0.5, "cm"),
+        plot.title = element_text(size=10, face='bold'),
+        panel.background = element_rect(fill='white', colour='white'),
+        axis.line = element_line(colour='black', linetype = 'dashed'))+
+  labs(x='', y='% a.a.',
+    #   title='IPCA vs. IGP-M',
+       caption='Fonte: elaborada pelo autor com dados do SIBRA/IBGE (2021) e BCB (2021).')
+```
+
+
+
+
+A Tabela \@ref(tab:tabelaindice) traz um resumo com os  principais índices empregados no país.
+
+```{r tabelaindice, echo=F, eval=T,  fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+library(tidyverse)
+library(kableExtra)
+
+indice <- data.frame(
+  Instituto = c("IBGE","IBGE","IBGE","IBGE", "Ibre-FGV","Ibre-FGV","Ibre-FGV", "FIPE","FIPE", "Dieese", "Sinduscon"),
+  Nome = c("IPCA (Índice Nacional de Preços ao Consumidor Amplo)",
+           "INPC (Índice Nacional de Preços ao Consumidor)",
+           "IPP (Índice de Preços ao Produtor)",
+           "SINAPI (Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil)", 
+           "IGP-M, IGP-DI e IGP-10",
+           "Índice de Preços Pagos pelos Produtores Rurais (IPP)",
+           "IPC-3i (Índice de Preços ao Consumidor da Terceira Idade)",
+           "IPC-Fipe",
+           "Fipe-Zap",
+           "Cesta Básica Nacional",
+           "Custo Unitário Básico (CUB) da construção civil do estado de São Paulo")
+#,preco = c("Sim","Sim ","Não","Não","Não, mas contêm componentes de preços ao consumidor ","Não","Sim","Sim","Não","Sim","Não") 
+) %>% 
+  rename(`Índice de Preços` = Nome #,`Índice de Preços ao Consumidor` = preco
+  )     
+
+
+knitr::kable(indice,longtable = FALSE, booktabs = TRUE, caption = "Exemplos de Índices de Preços Produzidos no Brasil") # %>%
+ # kableExtra::kable_styling(position = "center",full_width = F , bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+
+
+# Deflacionamento
+
+Texto de referência Vasconcellos e Garcia [-@Vasconcellos2018, p. 188-193].
+
+Estudos que envolvem comparações intertemporais de preços requer que os mesmos sejam corrigidos do   efeito da [inflação](https://www.ibge.gov.br/explica/inflacao.php). O método é conhecido como transformação dos valores nominais em reais. Esse ajuste permite avaliar se a valorização nominal verificada no preço de produto corresponde a uma valorização real, vis-à-vis a inflação no período considerado.
+<!--\footnote{Cf. a  \href{https://www3.bcb.gov.br/CALCIDADAO/publico/exibirFormCorrecaoValores.do?method=exibirFormCorrecaoValores&aba=1}{Calculadora do Cidadão do Banco Central}, para conversões pontuais.}-->
+
+
+
+```{corollary, name="Fórmula básica para o deflacionamento"}
+
+$$
+\begin{aligned}
+ P_{i:j} = \left(\frac{I_{j}}{I_{i}}\right)\times P_{i}\label{defla}
+ \end{aligned}
+$$
+  
+<font size="1">$P_{i:j} = \textrm{preço real do produto do período } i \textrm{ em valor do período } j;$
+
+$P_i = \textrm{preço nominal do produto no período } i;$
+
+$I_i = \textrm{Índice de preço no período } i, \textrm{ e}$
+
+$I_j = \textrm{Índice de preço no período } j.$ 
+   
+   </font> 
+```
+
+
+
+A função mostra que preço real do produto é igual à relação entre os índices de preços nos períodos _j:i_ multiplicado pelo preço nominal.
+ 
+ 
+ A Figura \@ref(fig:deflacionamento) evidencia o PIB do Brasil em valores nominais e reais.
+
+
+```{r, echo=F, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+#Tabela 1846 - Valores a preços correntes
+
+preco_cor <- get_sidra(api = "/t/1846/n1/all/v/all/p/all/c11255/all/d/v585%200") %>% 
+  mutate(date = as.yearqtr(`Trimestre (Código)`, format = '%Y%q')) %>% 
+  select(date, `Setores e subsetores`, Valor) %>% 
+  spread(`Setores e subsetores`, Valor) 
+
+#preco_cor %>%  saveRDS("preco_cor.RDS")
+#preco_cor <- readRDS("preco_cor.RDS")
+```
+
+
+
+
+```{r, echo=F, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+# Tabela 1737 - IPCA - Série histórica com número-índice, variação mensal e variações acumuladas em 3 meses, em 6 meses, no ano e em 12 meses (a partir de dezembro/1979)
+indice_ipca <- get_sidra(api = '/t/1737/n1/all/v/2266/p/all/d/v2266%2013') %>%   mutate(date = ymd(paste0(`Mês (Código)`, '01'))) %>% # YMD - Analise datas com componentes de ano, mês e dia
+# paste0 - Concatene vetores após converter em caracteres. construiu uma coluna de datas
+  separate(Mês, into = c("Mês", "Ano"), sep = -4, convert = F) %>% 
+  mutate(Mês = ifelse(as.character(Mês) == "dezembro ", "Q4", as.character(Mês))) %>% 
+  mutate(Mês = ifelse(as.character(Mês) == "março ", "Q1", as.character(Mês))) %>% 
+  mutate(Mês = ifelse(as.character(Mês) == "junho ", "Q2", as.character(Mês))) %>% 
+  mutate(Mês = ifelse(as.character(Mês) == "setembro ", "Q3", as.character(Mês))) %>% 
+  unite(date, Ano, Mês, sep = " ") %>%
+  select(date,`Mês (Código)`, Valor) %>% 
+  filter(!str_detect(date, "o $")) %>% # menos os terminados em o
+  filter(!str_detect(date, "abril")) %>% # menos abril
+  mutate(date = as.yearqtr(date)) %>% 
+  rename(IPCA = Valor) %>% 
+  as_tibble() 
+ 
+# indice_ipca %>% saveRDS("indice_ipca.RDS")
+#indice_ipca <- readRDS("indice_ipca.RDS") 
+```
+
+```{r, echo=F, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+billion <- function(value) {
+  value/10000000
+}
+
+setores <- preco_cor %>% 
+  select(date,`Agropecuária - total`, `Indústria - total`, `Serviços - total`, `PIB a preços de mercado`)
+
+
+setores <- setores %>% 
+inner_join(indice_ipca, by = "date") %>% 
+  mutate(Agropecuária  = `Agropecuária - total`*5560.590000/IPCA,
+         Indústria = `Indústria - total`*5560.590000/IPCA,
+         Serviços = `Serviços - total`*5560.590000/IPCA,
+         PIB = `PIB a preços de mercado`*5560.590000/IPCA) %>% 
+  select(date, `PIB a preços de mercado`,PIB) 
+
+```
+
+
+```{r deflacionamento,  echo=F, eval=T, fig.width=9, fig.height=4, fig.align='center', warning=FALSE, message=FALSE, size='small', fig.cap= "Produto Interno Bruto Nominal e Real", fig.path= "figure/"}
+# para ver o caminha das figuras dep_path(default = knitr::opts_chunk$get("fig.path"))
+billion <- function(value) {
+  value/1000000000
+}
+# ----- Ano -----
+#anos <- 1999:2019
+
+year <- setores %>% 
+  mutate(date2 = date) %>% 
+  separate(date2, into = c("Ano", "Q" ), sep = -2, convert = F) %>% 
+  group_by(Ano) %>% 
+  mutate(`PIB Nominal` = cumsum(`PIB a preços de mercado`)) 
+
+ipca <- indice_ipca %>% 
+  filter(str_detect(date, '4$')) %>%    # terminado em 4
+  separate(date, into = c("Ano", "Q" ), sep = -2, convert = F)
+
+setores_year <- year %>% 
+  select(Ano, date, `PIB Nominal`) %>% 
+  filter(str_detect(date, '4$')) %>%   # terminado em 4
+  select(Ano, `PIB Nominal`) %>% 
+  gather(key = "Setores", value = "Valor", -Ano) %>% 
+  inner_join(ipca, by = "Ano") %>% 
+  mutate(`PIB Real` = Valor*5560.590000/IPCA) %>% 
+  rename(`PIB Nominal` = Valor) %>% 
+  select(Ano, `PIB Nominal`, `PIB Real`) %>% 
+  gather("PIB", "Valor", -1)
+
+
+
+
+
+ggplot(data = setores_year, aes(x = Ano, y = Valor, group = PIB)) +
+  theme_economist_white() +
+  geom_line(aes(fill = PIB, colour = PIB)) +
+  scale_color_manual(values = c("#722f37", "#5d8aa8"), labels = c("Nominal", "Real")) + 
+  scale_y_continuous(labels = function(value) {
+  value/1000
+}) +
+  labs(x = "", y = "PIB (Bilhão)",
+       caption = "Fonte: elaborada pelo autor com dados do SIDRA/IBGE (2021).",
+       subtitle = "Valores deflacionados pelo IPCA para dezembro de 2020") + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1,size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.text = element_text(size = 10))
+
+#plotly::ggplotly(setores_year_plot)
+```
+<br>
+
+
+# Tipos de Inflação
+
+## Inflação de custos
+
+A inflação de custos é resultante dos choques na oferta agregada. É o processo inflacionário gerado (ou acelerado) pela elevação dos custos de produção, especialmente das taxas de juros, de câmbio, de salários ou dos preços das importações.
+
+## Inflação de demanda
+
+A inflação de demanda é resultante dos choques na demanda agregada. Quando os meios de pagamento crescem além da capacidade de expansão da economia, ou antes, que a produção esteja em plena capacidade, o que impede que a maior demanda decorrente da expansão dos rendimentos seja atendida. Com isso, aumentam os preços e, por extensão, os salários e os rendimentos em geral, dando origem a uma espiral inflacionária.
+
+
+## Inflação inercial
+
+Quando o aumento de preços do período $t$ é influenciado pelo aumento do nível geral de preços do período $t_{-1}$, damos o nome de inflação inercial.
+Em outras palavras, os preços sobem hoje porque subiram ontem.
+Para manter o poder de compra dos trabalhadores, os aumentos de preços são compensados por aumentos salariais e estes no que lhe concerne elevam a demanda por bens e serviços, que pressiona os preços, resultando em novos aumentos.
+Em momentos de elevada e persistente inflação, como os anos anteriores ao plano real, os  reajustes de preços e salários ocorreram em intervalos de tempo cada vez menores.
+A este fenômeno, de reajuste em função da inflação do período anterior, dá-se o nome de indexação.
+
+## Estagflação
+
+ Situação na economia de um país na qual a estagnação ou o declínio do nível de produção e emprego se combinam com uma inflação acelerada. O fenômeno contraria a teoria clássica segundo a qual a inflação tenderia a declinar com o aumento do desemprego.
+ 
+## Deflação
+
+Quando a taxa de inflação é menor que zero damos o nome de `r text_spec("**deflação**", color = "#5d8aa8")`, isto é, uma taxa de inflação negativa.
+É caracterizada pela baixa oferta de moeda em relação à oferta de bens e serviços ou pela queda na demanda agregada (associada, por exemplo, a um maior índice de poupança).
+
+A deflação pode ser tão prejudicial para economia quanto a inflação,  deflações contínuas podem reduzir o nível do produto.
+
+Considere a inflação ($\pi$) e a taxa de juros nominal ($i$). A taxa de juros real ($r$) é dada por:
+
+$$r =i -\pi.$$
+
+Sabendo que a taxa de juros real é a taxa de juros nominal menos a taxa de inflação, quando esta for negativa verificar-se-á uma elevação da taxa de juros real, prejudicando o consumo e o  investimento.
+
+Mas… por quê?
+
+
+Como visto, umas das  formas de representar o produto agregado é:
+
+$$ Y = C + I  + G + (X-M).$$
+
+Em tese, a taxa de juros tem influência na decisão de consumo das famílias, ou seja,  as famílias podem optar por poupar parte de suas rendas para consumo futuro.
+Um dos motivos que leva uma família a tomar essa decisão é como ela será remunerada por isso. Ou seja, a remuneração da poupança está associada a formação da taxa de juros nos mercados financeiros, quando a  taxa  de juros se eleva  as famílias têm mais incentivos para reduzir o consumo presente e aumentar a sua poupança. 
+
+Já o empresário quando decide investir, considera o valor corrente do investimento, sua expectativa de retorno  e  o `r text_spec("**custo de oportunidade**", color = "#5d8aa8")` do investimento.
+O empresário precisa mensurar, de alguma maneira, qual é o retorno que esse investimento pode lhe oferecer. Se a taxa de juros for maior que o retorno esperado do `r text_spec("**investimento produtivo**", color = "#5d8aa8")`, o empresário não terá incentivo para fazê-lo. Por dois motivos principais, taxas de juros elevadas encarecem o crédito no mercado, ou seja, o empréstimo para o investimento produtivo fica mais caro. O segundo motivo é que a taxa de juros elevada incentiva o investimento no mercado financeiro.
+
+
+```{lemma, name="Custo de oportunidade"}
+```
+> [...]"Segundo esse conceito, os custos não devem ser considerados absolutos, mas iguais a uma segunda melhor oportunidade de benefícios não aproveitada. Ou seja,
+quando a decisão para as possibilidades de utilização de A exclui a escolha de um melhor B, podem-se considerar os benefícios não aproveitados decorrentes de B como custos de oportunidade"  [SANDRONI, -@sandroni1999].
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+
+```{r, echo=T, eval=T, results='asis', fig.width=8, fig.height=6, fig.align='center', warning=FALSE, message=FALSE, size='small'}
+
+
+```
+
+<br>
+
+# Referências
